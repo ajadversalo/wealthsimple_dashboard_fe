@@ -275,6 +275,7 @@ export default function PositionsDashboard() {
                   <th className="pb-3 font-semibold">Ticker</th>
                   <th className="pb-3 font-semibold">Strategy</th>
                   <th className="pb-3 font-semibold">Strike / Exp</th>
+                  <th className="pb-3 font-semibold">Current</th>
                   <th className="pb-3 font-semibold text-right">Credit (USD)</th>
                   <th className="pb-3 font-semibold text-center">Status</th>
                   <th className="pb-3 font-semibold text-right">Weight</th>
@@ -302,6 +303,9 @@ export default function PositionsDashboard() {
                       <td className="py-3 text-slate-300">
                         ${pos.option_leg.strike_price.toFixed(2)} {pos.option_leg.option_type}
                         <span className="block text-[10px] text-slate-500">{pos.option_leg.expiration_date}</span>
+                      </td>
+                      <td className="py-3 text-right text-emerald-400 font-semibold">
+                        ${pos.current_price.toFixed(2)}
                       </td>
                       <td className="py-3 text-right text-emerald-400 font-semibold">
                         ${creditUsd.toFixed(2)}
