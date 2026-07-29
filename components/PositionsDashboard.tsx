@@ -260,23 +260,6 @@ export default function PositionsDashboard() {
             </div>
           </div>
         </div>
-
-        {/* FX Exchange Rate Quick Reference */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-          <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">FX Rate</p>
-          <div className="mt-3 space-y-1">
-            <div className="flex items-baseline justify-between">
-              <span className="text-xl font-bold text-cyan-400 font-mono">
-                {fx.toFixed(4)}
-              </span>
-              <span className="text-xs text-slate-400 font-semibold font-mono">USD/CAD</span>
-            </div>
-            <div className="pt-1 border-t border-slate-800/80">
-              <span className="text-[10px] text-slate-500 font-mono block">Spot Conversion Rate</span>
-            </div>
-          </div>
-        </div>
-
       </div>
 
       {/* Main Grid */}
