@@ -191,15 +191,15 @@ export default function PositionsDashboard() {
           <div className="mt-3 space-y-1">
             <div className="flex items-baseline justify-between">
               <span className="text-xl font-bold text-white font-mono">
-                ${netPortfolioUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                CA${netPortfolioCAD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
-              <span className="text-xs text-slate-400 font-semibold font-mono">USD</span>
+              <span className="text-xs text-slate-400 font-semibold font-mono">CAD</span>
             </div>
             <div className="flex items-baseline justify-between pt-1 border-t border-slate-800/80">
               <span className="text-sm font-semibold text-slate-300 font-mono">
-                CA${netPortfolioCAD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                ${netPortfolioUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
-              <span className="text-[10px] text-slate-500 font-mono">CAD</span>
+              <span className="text-[10px] text-slate-500 font-mono">USD</span>
             </div>
           </div>
         </div>
