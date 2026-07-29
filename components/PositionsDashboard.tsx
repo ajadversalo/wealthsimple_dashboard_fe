@@ -304,7 +304,7 @@ export default function PositionsDashboard() {
                         ${pos.option_leg.strike_price.toFixed(2)} {pos.option_leg.option_type}
                         <span className="block text-[10px] text-slate-500">{pos.option_leg.expiration_date}</span>
                       </td>
-                      <td className="py-3 text-right text-emerald-400 font-semibold">
+                      <td className="py-3 text-slate-300">
                         ${pos.current_price.toFixed(2)}
                       </td>
                       <td className="py-3 text-right text-emerald-400 font-semibold">
