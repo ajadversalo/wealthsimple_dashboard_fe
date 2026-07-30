@@ -300,7 +300,7 @@ const calculateIntrinsicPL = (pos: Position): number => {
                   <th className="pb-3 font-semibold">Strike / Exp</th>
                   <th className="pb-3 font-semibold">Current</th>
                   <th className="pb-3 font-semibold">Expiration</th>
-                  <th className="py-3 text-right">Intrinsic P/L</th>
+                  <th className="pb-3 font-semibold">Intrinsic P/L</th>
                   <th className="pb-3 font-semibold">Credit (USD)</th>
                   <th className="pb-3 font-semibold text-center">Status</th>
                   <th className="pb-3 font-semibold text-right">Weight</th>
@@ -351,7 +351,7 @@ const calculateIntrinsicPL = (pos: Position): number => {
                           return null;
                         })()}
                       </td>
-                      <td className="py-3 text-right font-mono">
+                      <td className="py-3 font-mono">
                         {pos.option_leg ? (
                           <span className={isPositive ? "text-emerald-400" : "text-rose-400"}>
                             {isPositive ? `+$${pl.toFixed(2)}` : `-$${Math.abs(pl).toFixed(2)}`}
