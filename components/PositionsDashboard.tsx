@@ -154,6 +154,24 @@ export default function PositionsDashboard() {
     return `${color} ${start}% ${end}%`;
   }).join(', ');
 
+  // Helper function to calculate DTE (Days to Expiration)
+const calculateDTE = (expDateStr: string | undefined | null): number | null => {
+  if (!expDateStr) return null;
+
+  // Since your data payload is from 2026, let's set "today" to July 29, 2026.
+  // In your real code, you would use: new Date();
+  const today = new Date('2026-07-29T00:00:00Z'); // Fixed 'today' for context
+  const expDate = new Date(expDateStr + 'T00:00:00Z'); // Force UTC interpretation
+
+  // Difference in milliseconds
+  const diffTime = expDate.getTime() - today.getTime();
+  
+  // Convert milliseconds to days (ms * sec * min * hr)
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  return diffDays;
+};
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-6 space-y-6 font-sans">
 
@@ -183,14 +201,14 @@ export default function PositionsDashboard() {
       </header>
 
       {/* Metric Cards Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 
         {/* Total Portfolio Value (~$18,527.00 USD / CA$26,113.81) */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
           <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Total Portfolio</p>
           <div className="mt-3 space-y-1">
             <div className="flex items-baseline justify-between">
-              <span className="text-xl font-bold text-white font-mono">
+              <span className="text-4xl font-bold text-emerald-400 font-mono">
                 CA${netPortfolioCAD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
               <span className="text-xs text-slate-400 font-semibold font-mono">CAD</span>
@@ -209,13 +227,13 @@ export default function PositionsDashboard() {
           <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Available Cash</p>
           <div className="mt-3 space-y-1">
             <div className="flex items-baseline justify-between">
-              <span className="text-xl font-bold text-emerald-400 font-mono">
+              <span className="text-xl font-bold text-emerald-200 font-mono">
                 ${cashUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
               <span className="text-xs text-slate-400 font-semibold font-mono">USD</span>
             </div>
             <div className="flex items-baseline justify-between pt-1 border-t border-slate-800/80">
-              <span className="text-sm font-semibold text-emerald-500/90 font-mono">
+              <span className="text-sm font-semibold text-emerald-200/90 font-mono">
                 CA${cashCAD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
               <span className="text-[10px] text-slate-500 font-mono">CAD</span>
@@ -240,26 +258,7 @@ export default function PositionsDashboard() {
               <span className="text-[10px] text-slate-500 font-mono">CAD ({((deployedUSD / netPortfolioUSD) * 100).toFixed(1)}%)</span>
             </div>
           </div>
-        </div>
-
-        {/* Open Premium Collected */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-          <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Open Premium</p>
-          <div className="mt-3 space-y-1">
-            <div className="flex items-baseline justify-between">
-              <span className="text-xl font-bold text-amber-400 font-mono">
-                ${totalPremiumUSD.toFixed(2)}
-              </span>
-              <span className="text-xs text-slate-400 font-semibold font-mono">USD</span>
-            </div>
-            <div className="flex items-baseline justify-between pt-1 border-t border-slate-800/80">
-              <span className="text-sm font-semibold text-amber-500/90 font-mono">
-                CA${totalPremiumCAD.toFixed(2)}
-              </span>
-              <span className="text-[10px] text-slate-500 font-mono">CAD</span>
-            </div>
-          </div>
-        </div>
+        </div>        
       </div>
 
       {/* Main Grid */}
@@ -276,7 +275,8 @@ export default function PositionsDashboard() {
                   <th className="pb-3 font-semibold">Strategy</th>
                   <th className="pb-3 font-semibold">Strike / Exp</th>
                   <th className="pb-3 font-semibold">Current</th>
-                  <th className="pb-3 font-semibold text-right">Credit (USD)</th>
+                  <th className="pb-3 font-semibold">Expiration</th>
+                  <th className="pb-3 font-semibold">Credit (USD)</th>
                   <th className="pb-3 font-semibold text-center">Status</th>
                   <th className="pb-3 font-semibold text-right">Weight</th>
                 </tr>
@@ -307,7 +307,24 @@ export default function PositionsDashboard() {
                       <td className="py-3 text-slate-300">
                         ${pos.current_price.toFixed(2)}
                       </td>
-                      <td className="py-3 text-right text-emerald-400 font-semibold">
+                      <td className="py-3 text-slate-300">
+                        {pos.option_leg?.expiration_date}
+                        {(() => {
+                          // 1. Calculate DTE using the expiration string
+                          const dte = calculateDTE(pos.option_leg?.expiration_date);
+
+                          // 2. Conditionally display it if it's a valid number
+                          if (dte !== null) {
+                            return (
+                              <span className="text-slate-500 text-sm ml-2">
+                                ({dte} DTE)
+                              </span>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </td>
+                      <td className="py-3 text-emerald-400 font-semibold">
                         ${creditUsd.toFixed(2)}
                       </td>
                       <td className="py-3 text-center">
