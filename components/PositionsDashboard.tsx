@@ -172,6 +172,30 @@ const calculateDTE = (expDateStr: string | undefined | null): number | null => {
   return diffDays;
 };
 
+// Helper to calculate intrinsic P/L at expiration
+const calculateIntrinsicPL = (pos: Position): number => {
+  const option = pos.option_leg;
+  if (!option) return 0;
+
+  const current = pos.current_price || 0;
+  const strike = option.strike_price || 0;
+  const premium = option.avg_price || 0;
+  const contracts = Math.abs(option.quantity || 1);
+  const type = option.option_type.toUpperCase();
+
+  let plPerShare = premium;
+
+  if (type === "PUT" && current < strike) {
+    // CSP ITM
+    plPerShare = premium - (strike - current);
+  } else if (type === "CALL" && current > strike) {
+    // CC ITM
+    plPerShare = premium - (current - strike);
+  }
+
+  return plPerShare * 100 * contracts;
+};
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-6 space-y-6 font-sans">
 
@@ -276,6 +300,7 @@ const calculateDTE = (expDateStr: string | undefined | null): number | null => {
                   <th className="pb-3 font-semibold">Strike / Exp</th>
                   <th className="pb-3 font-semibold">Current</th>
                   <th className="pb-3 font-semibold">Expiration</th>
+                  <th className="py-3 text-right">Intrinsic P/L</th>
                   <th className="pb-3 font-semibold">Credit (USD)</th>
                   <th className="pb-3 font-semibold text-center">Status</th>
                   <th className="pb-3 font-semibold text-right">Weight</th>
@@ -285,6 +310,8 @@ const calculateDTE = (expDateStr: string | undefined | null): number | null => {
                 {data.positions.map((pos) => {
                   const isITM = pos.option_leg.moneyness === 'ITM';
                   const creditUsd = pos.option_leg.avg_price * Math.abs(pos.option_leg.quantity) * 100;
+                  const pl = calculateIntrinsicPL(pos);
+                  const isPositive = pl >= 0;
 
                   return (
                     <tr key={pos.option_leg.contract_symbol} className="hover:bg-slate-800/40 transition-colors">
@@ -323,6 +350,15 @@ const calculateDTE = (expDateStr: string | undefined | null): number | null => {
                           }
                           return null;
                         })()}
+                      </td>
+                      <td className="py-3 text-right font-mono">
+                        {pos.option_leg ? (
+                          <span className={isPositive ? "text-emerald-400" : "text-rose-400"}>
+                            {isPositive ? `+$${pl.toFixed(2)}` : `-$${Math.abs(pl).toFixed(2)}`}
+                          </span>
+                        ) : (
+                          <span className="text-slate-500">-</span>
+                        )}
                       </td>
                       <td className="py-3 text-emerald-400 font-semibold">
                         ${creditUsd.toFixed(2)}
