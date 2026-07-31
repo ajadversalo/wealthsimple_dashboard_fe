@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { signOut } from 'next-auth/react';
 import MiniCashSecuredPutsScreener from './MiniCashSecuredPutsScreener';
 
 // --- TypeScript Interfaces ---
@@ -233,6 +234,13 @@ export default function PositionsDashboard() {
             className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-md transition-colors disabled:opacity-50"
           >
             {loading ? 'Refreshing...' : 'Sync Now'}
+          </button>
+          <button
+            type="button"
+            onClick={() => signOut({ callbackUrl: '/signin' })}
+            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-md transition-colors"
+          >
+            Sign out
           </button>
         </div>
       </header>

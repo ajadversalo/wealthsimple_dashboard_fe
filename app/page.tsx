@@ -1,7 +1,13 @@
 import PositionsDashboard from '@/components/PositionsDashboard';
 import CashSecuredPutsScreener from '@/app/components/CashSecuredPutsScreener';
+import { getServerSession } from 'next-auth';
+import { redirect } from 'next/navigation';
+import { authOptions } from '@/lib/auth';
 
-export default function Home() {
+export default async function Home() {
+  const session = await getServerSession(authOptions);
+  if (!session) redirect('/signin');
+
   return (
     <main className="bg-slate-950">
       <PositionsDashboard />
