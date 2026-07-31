@@ -38,7 +38,7 @@ export default function MiniCashSecuredPutsScreener() {
   }, []);
 
   return (
-    <div className="h-[146px] bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col overflow-hidden">
+    <div className="sm:col-span-2 h-[146px] bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col overflow-hidden">
       <div className="flex items-center justify-between mb-2 shrink-0">
         <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">CSP Screener</p>
         <span className="text-[10px] text-slate-500 font-mono">Top picks</span>

@@ -149,20 +149,21 @@ export default function PositionsDashboard() {
   if (!data) return null;
 
   const fx = data.fx_rate_usd_cad;
-  const netPortfolioUSD = data.total_capital.usd;
-  const netPortfolioCAD = data.total_capital.cad;
 
-  const wsNetCAD = data.broker_totals.WEALTHSIMPLE.net_value.cad;
-  const wsNetUSD = data.broker_totals.WEALTHSIMPLE.net_value.usd;
+  // This dashboard represents the Wealthsimple options account only. Other
+  // brokers remain in the API payload but must not affect its summary values.
+  const wealthsimpleTotals = data.broker_totals.WEALTHSIMPLE;
+  const netPortfolioUSD = wealthsimpleTotals.net_value.usd;
+  const netPortfolioCAD = wealthsimpleTotals.net_value.cad;
+
+  const wsNetCAD = wealthsimpleTotals.net_value.cad;
+  const wsNetUSD = wealthsimpleTotals.net_value.usd;
 
   const krNetCAD = data.broker_totals.KRAKEN.net_value.cad;
   const krNetUSD = data.broker_totals.KRAKEN.net_value.usd;
 
-  const cashUSD = data.remaining_capital.usd;
-  const cashCAD = data.remaining_capital.cad;
-
-  const deployedUSD = Math.max(0, netPortfolioUSD - cashUSD);
-  const deployedCAD = Math.max(0, netPortfolioCAD - cashCAD);
+  const cashUSD = wealthsimpleTotals.remaining_capital.usd;
+  const cashCAD = wealthsimpleTotals.remaining_capital.cad;
 
   // Conic Gradient for Sector Donut
   let currentPct = 0;
