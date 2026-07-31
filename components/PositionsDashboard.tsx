@@ -18,14 +18,32 @@ export interface Underlying {
   avg_purchase_price: number;
 }
 
+export interface CurrencyValue {
+  usd: number;
+  cad: number;
+}
+
+export type BrokerTotals = Record<string, BrokerSummary>;
+
+export interface BrokerSummary {
+  broker: string;
+  net_value: CurrencyValue;
+  option_liabilities: CurrencyValue;
+  remaining_capital: CurrencyValue;
+  deployed_capital: CurrencyValue;
+  total_capital: CurrencyValue;
+}
+
 export interface Position {
   symbol: string;
-  strategy: 'CASH_SECURED_PUT' | 'COVERED_CALL' | string;
+  broker: string;
+  asset_class: string;
+  strategy: 'CASH_SECURED_PUT' | 'COVERED_CALL' | 'LONG_EQUITY' | string;
   industry: string;
   current_price: number;
   portfolio_pct: number;
   underlying: Underlying | null;
-  option_leg: OptionLeg;
+  option_leg: OptionLeg | null;
 }
 
 export interface Sector {
@@ -48,15 +66,16 @@ export interface PositionsPayload {
   remaining_capital: CurrencyPair;
   positions: Position[];
   sectors: Sector[];
+  broker_totals: BrokerTotals;
 }
 
 const SECTOR_COLORS = [
-  '#06b6d4', // Cyan
-  '#6366f1', // Indigo
+  '#06b6d4', // Cyan (Healthcare)
+  '#6366f1', // Indigo (Financials)
+  '#f59e0b', // Amber (Consumer Staples)
+  '#8b5cf6', // Purple (Crypto)
   '#10b981', // Emerald
-  '#f59e0b', // Amber
   '#ec4899', // Pink
-  '#8b5cf6', // Purple
 ];
 
 export default function PositionsDashboard() {
@@ -71,9 +90,10 @@ export default function PositionsDashboard() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 90000);
 
-      const response = await fetch('https://wealthsimple-dashboard.onrender.com/api/v1/positions', {
+      //const response = await fetch('https://wealthsimple-dashboard.onrender.com/api/v1/positions', {
+      const response = await fetch('http://127.0.0.1:8000/api/v1/positions', {
         signal: controller.signal,
-        headers: { 'Accept': 'application/json' },
+        headers: { Accept: 'application/json' },
       });
 
       clearTimeout(timeoutId);
@@ -100,7 +120,9 @@ export default function PositionsDashboard() {
   if (loading && !data) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-slate-950 text-slate-100 p-6">
-        <p className="text-slate-400 animate-pulse font-mono text-sm">Loading positions from Render...</p>
+        <p className="text-slate-400 animate-pulse font-mono text-sm">
+          Loading positions from Render...
+        </p>
       </div>
     );
   }
@@ -125,86 +147,76 @@ export default function PositionsDashboard() {
   if (!data) return null;
 
   const fx = data.fx_rate_usd_cad;
-
-  // ✅ FIX 1: Total Portfolio Net Equity directly from API payload
   const netPortfolioUSD = data.total_capital.usd;
   const netPortfolioCAD = data.total_capital.cad;
 
-  // Available Cash directly from API payload
+  const wsNetCAD = data.broker_totals.WEALTHSIMPLE.net_value.cad;
+  const wsNetUSD = data.broker_totals.WEALTHSIMPLE.net_value.usd;
+
+  const krNetCAD = data.broker_totals.KRAKEN.net_value.cad;
+  const krNetUSD = data.broker_totals.KRAKEN.net_value.usd;
+
   const cashUSD = data.remaining_capital.usd;
   const cashCAD = data.remaining_capital.cad;
 
-  // ✅ FIX 2: Capital Deployed = Total Net Equity minus Available Cash
   const deployedUSD = Math.max(0, netPortfolioUSD - cashUSD);
   const deployedCAD = Math.max(0, netPortfolioCAD - cashCAD);
 
-  const totalPremiumUSD = data.positions.reduce((acc, pos) => {
-    const qty = Math.abs(pos.option_leg.quantity);
-    return acc + (pos.option_leg.avg_price * qty * 100);
-  }, 0);
-  const totalPremiumCAD = totalPremiumUSD * fx;
-
-  // Build Conic Gradient Stops for the Pie Chart
+  // Conic Gradient for Sector Donut
   let currentPct = 0;
-  const gradientStops = data.sectors.map((sector, idx) => {
-    const color = SECTOR_COLORS[idx % SECTOR_COLORS.length];
-    const start = currentPct;
-    const end = currentPct + sector.portfolio_pct;
-    currentPct = end;
-    return `${color} ${start}% ${end}%`;
-  }).join(', ');
+  const gradientStops = data.sectors
+    .map((sector, idx) => {
+      const color = SECTOR_COLORS[idx % SECTOR_COLORS.length];
+      const start = currentPct;
+      const end = currentPct + sector.portfolio_pct;
+      currentPct = end;
+      return `${color} ${start}% ${end}%`;
+    })
+    .join(', ');
 
-  // Helper function to calculate DTE (Days to Expiration)
-const calculateDTE = (expDateStr: string | undefined | null): number | null => {
-  if (!expDateStr) return null;
+  const calculateDTE = (expDateStr: string | undefined | null): number | null => {
+    if (!expDateStr) return null;
+    const today = new Date();
+    const expDate = new Date(expDateStr + 'T23:59:59Z');
+    const diffTime = expDate.getTime() - today.getTime();
+    return Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+  };
 
-  // Since your data payload is from 2026, let's set "today" to July 29, 2026.
-  // In your real code, you would use: new Date();
-  const today = new Date('2026-07-29T00:00:00Z'); // Fixed 'today' for context
-  const expDate = new Date(expDateStr + 'T00:00:00Z'); // Force UTC interpretation
+  const calculateIntrinsicPL = (pos: Position): number => {
+    const option = pos.option_leg;
+    if (!option || !option.option_type) return 0;
 
-  // Difference in milliseconds
-  const diffTime = expDate.getTime() - today.getTime();
-  
-  // Convert milliseconds to days (ms * sec * min * hr)
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  
-  return diffDays;
-};
+    const current = pos.current_price || 0;
+    const strike = option.strike_price || 0;
+    const premium = option.avg_price || 0;
+    const contracts = Math.abs(option.quantity || 0);
+    const type = option.option_type.toUpperCase();
 
-// Helper to calculate intrinsic P/L at expiration
-const calculateIntrinsicPL = (pos: Position): number => {
-  const option = pos.option_leg;
-  if (!option) return 0;
+    let plPerShare = premium;
 
-  const current = pos.current_price || 0;
-  const strike = option.strike_price || 0;
-  const premium = option.avg_price || 0;
-  const contracts = Math.abs(option.quantity || 1);
-  const type = option.option_type.toUpperCase();
+    if (type === 'PUT' && current < strike) {
+      plPerShare = premium - (strike - current);
+    } else if (type === 'CALL' && current > strike) {
+      plPerShare = premium - (current - strike);
+    }
 
-  let plPerShare = premium;
+    return plPerShare * 100 * contracts;
+  };
 
-  if (type === "PUT" && current < strike) {
-    // CSP ITM
-    plPerShare = premium - (strike - current);
-  } else if (type === "CALL" && current > strike) {
-    // CC ITM
-    plPerShare = premium - (current - strike);
-  }
-
-  return plPerShare * 100 * contracts;
-};
+  console.log("data ", data);
+  console.log("wsNetCAD ", wsNetCAD);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-6 space-y-6 font-sans">
-
       {/* Header Bar */}
       <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-slate-800 pb-4 gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Options Portfolio Monitor</h1>
+          <h1 className="text-2xl font-bold text-white tracking-tight">
+            Portfolio & Options Monitor
+          </h1>
           <p className="text-xs text-slate-400 mt-1">
-            Account: <span className="text-slate-200 font-mono">{data.account_id}</span> | Updated: {new Date(data.updated_at).toLocaleString()}
+            Account: <span className="text-slate-200 font-mono">{data.account_id}</span> | Updated:{' '}
+            {new Date(data.updated_at).toLocaleString()}
           </p>
         </div>
 
@@ -225,154 +237,303 @@ const calculateIntrinsicPL = (pos: Position): number => {
       </header>
 
       {/* Metric Cards Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-
-        {/* Total Portfolio Value (~$18,527.00 USD / CA$26,113.81) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-          <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Total Portfolio</p>
+          <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+            Total
+          </p>
           <div className="mt-3 space-y-1">
             <div className="flex items-baseline justify-between">
-              <span className="text-4xl font-bold text-emerald-400 font-mono">
-                CA${netPortfolioCAD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              <span className="text-3xl font-bold text-emerald-400 font-mono">
+                CA$
+                {netPortfolioCAD.toLocaleString('en-US', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
               </span>
               <span className="text-xs text-slate-400 font-semibold font-mono">CAD</span>
             </div>
             <div className="flex items-baseline justify-between pt-1 border-t border-slate-800/80">
               <span className="text-sm font-semibold text-slate-300 font-mono">
-                ${netPortfolioUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                $
+                {netPortfolioUSD.toLocaleString('en-US', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
               </span>
               <span className="text-[10px] text-slate-500 font-mono">USD</span>
             </div>
           </div>
         </div>
 
-        {/* Available Cash ($1,800.00 USD / CA$2,537.10) */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-          <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Available Cash</p>
+          <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+            Options Portfolio
+          </p>
           <div className="mt-3 space-y-1">
             <div className="flex items-baseline justify-between">
-              <span className="text-xl font-bold text-emerald-200 font-mono">
-                ${cashUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              <span className="text-3xl font-bold text-emerald-400 font-mono">
+                CA$
+                {wsNetCAD.toLocaleString('en-US', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </span>
+              <span className="text-xs text-slate-400 font-semibold font-mono">CAD</span>
+            </div>
+            <div className="flex items-baseline justify-between pt-1 border-t border-slate-800/80">
+              <span className="text-sm font-semibold text-slate-300 font-mono">
+                $
+                {wsNetUSD.toLocaleString('en-US', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </span>
+              <span className="text-[10px] text-slate-500 font-mono">USD</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+          <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+            Crypto Portfolio
+          </p>
+          <div className="mt-3 space-y-1">
+            <div className="flex items-baseline justify-between">
+              <span className="text-3xl font-bold text-emerald-400 font-mono">
+                CA$
+                {krNetCAD.toLocaleString('en-US', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </span>
+              <span className="text-xs text-slate-400 font-semibold font-mono">CAD</span>
+            </div>
+            <div className="flex items-baseline justify-between pt-1 border-t border-slate-800/80">
+              <span className="text-sm font-semibold text-slate-300 font-mono">
+                $
+                {krNetUSD.toLocaleString('en-US', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </span>
+              <span className="text-[10px] text-slate-500 font-mono">USD</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+          <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+            Available Cash
+          </p>
+          <div className="mt-3 space-y-1">
+            <div className="flex items-baseline justify-between">
+              <span className="text-2xl font-bold text-emerald-200 font-mono">
+                $
+                {cashUSD.toLocaleString('en-US', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
               </span>
               <span className="text-xs text-slate-400 font-semibold font-mono">USD</span>
             </div>
             <div className="flex items-baseline justify-between pt-1 border-t border-slate-800/80">
               <span className="text-sm font-semibold text-emerald-200/90 font-mono">
-                CA${cashCAD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                CA$
+                {cashCAD.toLocaleString('en-US', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
               </span>
               <span className="text-[10px] text-slate-500 font-mono">CAD</span>
             </div>
           </div>
         </div>
 
-        {/* Capital Deployed ($16,727.00 USD / CA$23,576.71) */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-          <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Capital Deployed</p>
+          <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+            Capital Deployed
+          </p>
           <div className="mt-3 space-y-1">
             <div className="flex items-baseline justify-between">
-              <span className="text-xl font-bold text-indigo-400 font-mono">
-                ${deployedUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              <span className="text-2xl font-bold text-indigo-400 font-mono">
+                $
+                {deployedUSD.toLocaleString('en-US', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
               </span>
               <span className="text-xs text-slate-400 font-semibold font-mono">USD</span>
             </div>
             <div className="flex items-baseline justify-between pt-1 border-t border-slate-800/80">
               <span className="text-sm font-semibold text-indigo-300/90 font-mono">
-                CA${deployedCAD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                CA$
+                {deployedCAD.toLocaleString('en-US', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
               </span>
-              <span className="text-[10px] text-slate-500 font-mono">CAD ({((deployedUSD / netPortfolioUSD) * 100).toFixed(1)}%)</span>
+              <span className="text-[10px] text-slate-500 font-mono">
+                CAD (
+                {netPortfolioUSD > 0
+                  ? ((deployedUSD / netPortfolioUSD) * 100).toFixed(1)
+                  : '0.0'}
+                %)
+              </span>
             </div>
           </div>
-        </div>        
+        </div>
       </div>
 
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-        {/* Table */}
+        {/* Active Positions Table */}
         <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-5 overflow-hidden">
-          <h2 className="text-base font-semibold text-white mb-4">Active Option Positions</h2>
+          <h2 className="text-base font-semibold text-white mb-4">Active Positions</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="border-b border-slate-800 text-slate-400 uppercase tracking-wider">
                   <th className="pb-3 font-semibold">Ticker</th>
                   <th className="pb-3 font-semibold">Strategy</th>
-                  <th className="pb-3 font-semibold">Strike / Exp</th>
+                  <th className="pb-3 font-semibold">Strike / Details</th>
                   <th className="pb-3 font-semibold">Current</th>
-                  <th className="pb-3 font-semibold">Expiration</th>
+                  <th className="pb-3 font-semibold">DTE</th>
                   <th className="pb-3 font-semibold">Intrinsic P/L</th>
-                  <th className="pb-3 font-semibold">Credit (USD)</th>
+                  <th className="pb-3 font-semibold">Credit</th>
                   <th className="pb-3 font-semibold text-center">Status</th>
                   <th className="pb-3 font-semibold text-right">Weight</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60 font-mono">
-                {data.positions.map((pos) => {
-                  const isITM = pos.option_leg.moneyness === 'ITM';
-                  const creditUsd = pos.option_leg.avg_price * Math.abs(pos.option_leg.quantity) * 100;
+                {data.positions.map((pos, idx) => {
+                  const option = pos.option_leg;
+                  const isCrypto = pos.asset_class === 'CRYPTO';
+                  const isITM = option?.moneyness === 'ITM';
+                  const qty = Math.abs(option?.quantity || 0);
+                  const creditUsd = (option?.avg_price || 0) * qty * 100;
                   const pl = calculateIntrinsicPL(pos);
                   const isPositive = pl >= 0;
+                  const dte = calculateDTE(option?.expiration_date);
 
                   return (
-                    <tr key={pos.option_leg.contract_symbol} className="hover:bg-slate-800/40 transition-colors">
+                    <tr
+                      key={option?.contract_symbol || `${pos.symbol}-${idx}`}
+                      className="hover:bg-slate-800/40 transition-colors"
+                    >
+                      {/* Ticker & Industry */}
                       <td className="py-3 font-bold text-white font-sans">
                         {pos.symbol}
-                        <span className="block text-[10px] text-slate-500 font-normal">{pos.industry}</span>
-                      </td>
-                      <td className="py-3">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-semibold tracking-wide ${pos.strategy === 'CASH_SECURED_PUT'
-                          ? 'bg-blue-950 text-blue-400 border border-blue-800'
-                          : 'bg-purple-950 text-purple-400 border border-purple-800'
-                          }`}>
-                          {pos.strategy === 'CASH_SECURED_PUT' ? 'CSP' : 'CC'}
+                        <span className="block text-[10px] text-slate-500 font-normal">
+                          {pos.industry}
                         </span>
                       </td>
-                      <td className="py-3 text-slate-300">
-                        ${pos.option_leg.strike_price.toFixed(2)} {pos.option_leg.option_type}
-                        <span className="block text-[10px] text-slate-500">{pos.option_leg.expiration_date}</span>
-                      </td>
-                      <td className="py-3 text-slate-300">
-                        ${pos.current_price.toFixed(2)}
-                      </td>
-                      <td className="py-3 text-slate-300">
-                        {pos.option_leg?.expiration_date}
-                        {(() => {
-                          // 1. Calculate DTE using the expiration string
-                          const dte = calculateDTE(pos.option_leg?.expiration_date);
 
-                          // 2. Conditionally display it if it's a valid number
-                          if (dte !== null) {
-                            return (
-                              <span className="text-slate-500 text-sm ml-2">
-                                ({dte} DTE)
-                              </span>
-                            );
-                          }
-                          return null;
-                        })()}
+                      {/* Strategy Badge */}
+                      <td className="py-3">
+                        {isCrypto ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-semibold tracking-wide bg-violet-950 text-violet-400 border border-violet-800">
+                            CRYPTO
+                          </span>
+                        ) : option ? (
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-semibold tracking-wide ${
+                              pos.strategy === 'CASH_SECURED_PUT'
+                                ? 'bg-blue-950 text-blue-400 border border-blue-800'
+                                : 'bg-purple-950 text-purple-400 border border-purple-800'
+                            }`}
+                          >
+                            {pos.strategy === 'CASH_SECURED_PUT' ? 'CSP' : 'CC'}
+                          </span>
+                        ) : (
+                          <span className="text-slate-500 text-[10px] font-sans">SPOT</span>
+                        )}
                       </td>
+
+                      {/* Strike / Contract Details */}
+                      <td className="py-3 text-slate-300">
+                        {option ? (
+                          <>
+                            ${option.strike_price.toFixed(2)} {option.option_type}
+                            <span className="block text-[10px] text-slate-500">
+                              {option.expiration_date}
+                            </span>
+                          </>
+                        ) : isCrypto ? (
+                          <>
+                            SPOT
+                            <span className="block text-[10px] text-slate-500">
+                              {pos.underlying?.shares
+                                ? `${pos.underlying.shares.toFixed(
+                                    pos.underlying.shares < 1 ? 4 : 2
+                                  )} tokens`
+                                : '-'}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-slate-500">-</span>
+                        )}
+                      </td>
+
+                      {/* Current Market Price */}
+                      <td className="py-3 text-slate-300">
+                        $
+                        {pos.current_price < 2
+                          ? pos.current_price.toFixed(4)
+                          : pos.current_price.toFixed(2)}
+                      </td>
+
+                      {/* DTE */}
+                      <td className="py-3 text-slate-300">
+                        {dte !== null ? (
+                          <span className="text-slate-300 font-semibold">{dte}d</span>
+                        ) : (
+                          <span className="text-slate-500">-</span>
+                        )}
+                      </td>
+
+                      {/* Intrinsic P/L */}
                       <td className="py-3 font-mono">
-                        {pos.option_leg ? (
-                          <span className={isPositive ? "text-emerald-400" : "text-rose-400"}>
-                            {isPositive ? `+$${pl.toFixed(2)}` : `-$${Math.abs(pl).toFixed(2)}`}
+                        {option ? (
+                          <span className={isPositive ? 'text-emerald-400' : 'text-rose-400'}>
+                            {isPositive
+                              ? `+$${pl.toFixed(2)}`
+                              : `-$${Math.abs(pl).toFixed(2)}`}
                           </span>
                         ) : (
                           <span className="text-slate-500">-</span>
                         )}
                       </td>
+
+                      {/* Credit */}
                       <td className="py-3 text-emerald-400 font-semibold">
-                        ${creditUsd.toFixed(2)}
+                        {option ? `$${creditUsd.toFixed(2)}` : <span className="text-slate-500">-</span>}
                       </td>
+
+                      {/* Status */}
                       <td className="py-3 text-center">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${isITM
-                          ? 'bg-amber-950 text-amber-400 border border-amber-700'
-                          : 'bg-emerald-950 text-emerald-400 border border-emerald-800'
-                          }`}>
-                          {pos.option_leg.moneyness}
-                        </span>
+                        {option?.moneyness ? (
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                              isITM
+                                ? 'bg-amber-950 text-amber-400 border border-amber-700'
+                                : 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                            }`}
+                          >
+                            {option.moneyness}
+                          </span>
+                        ) : isCrypto ? (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-800 text-slate-400 border border-slate-700">
+                            HOLDING
+                          </span>
+                        ) : (
+                          <span className="text-slate-500">-</span>
+                        )}
                       </td>
+
+                      {/* Weight */}
                       <td className="py-3 text-right text-slate-300">
-                        {pos.portfolio_pct.toFixed(1)}%
+                        {(pos.portfolio_pct || 0).toFixed(1)}%
                       </td>
                     </tr>
                   );
@@ -387,16 +548,17 @@ const calculateIntrinsicPL = (pos: Position): number => {
           <div>
             <h2 className="text-base font-semibold text-white mb-2">Sector Allocation</h2>
 
-            {/* Pie Chart Element */}
+            {/* Pie / Donut Element */}
             <div className="py-4 flex justify-center">
               <div
                 className="w-44 h-44 rounded-full flex items-center justify-center shadow-lg border border-slate-800"
                 style={{ background: `conic-gradient(${gradientStops})` }}
               >
-                {/* Inner Cutout for Donut View */}
                 <div className="w-24 h-24 bg-slate-900 rounded-full flex flex-col items-center justify-center border border-slate-800">
                   <span className="text-[10px] text-slate-400 uppercase font-medium">Sectors</span>
-                  <span className="text-lg font-bold text-white font-mono">{data.sectors.length}</span>
+                  <span className="text-lg font-bold text-white font-mono">
+                    {data.sectors.length}
+                  </span>
                 </div>
               </div>
             </div>
@@ -408,11 +570,16 @@ const calculateIntrinsicPL = (pos: Position): number => {
                 return (
                   <div key={sector.industry} className="flex items-center justify-between text-xs">
                     <div className="flex items-center gap-2">
-                      <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: color }} />
+                      <span
+                        className="w-3 h-3 rounded-full inline-block"
+                        style={{ backgroundColor: color }}
+                      />
                       <span className="font-medium text-slate-300">{sector.industry}</span>
                     </div>
                     <div className="text-right">
-                      <span className="font-mono text-slate-200 font-semibold">{sector.portfolio_pct.toFixed(1)}%</span>
+                      <span className="font-mono text-slate-200 font-semibold">
+                        {sector.portfolio_pct.toFixed(1)}%
+                      </span>
                       <span className="block text-[10px] text-slate-500 font-mono">
                         ${sector.capital_committed.toLocaleString()} USD
                       </span>
@@ -428,7 +595,6 @@ const calculateIntrinsicPL = (pos: Position): number => {
             <p>• Data refetches automatically every 60 minutes.</p>
           </div>
         </div>
-
       </div>
     </div>
   );
