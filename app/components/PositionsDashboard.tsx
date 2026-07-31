@@ -60,6 +60,8 @@ const SECTOR_COLORS = [
   '#8b5cf6', // Purple
 ];
 
+const POSITIONS_API_URL = process.env.NEXT_PUBLIC_POSITIONS_API_URL;
+
 export default function PositionsDashboard() {
   const [data, setData] = useState<PositionsPayload | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -69,10 +71,14 @@ export default function PositionsDashboard() {
     setLoading(true);
     setError(null);
     try {
+      if (!POSITIONS_API_URL) {
+        throw new Error('NEXT_PUBLIC_POSITIONS_API_URL is not configured');
+      }
+
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 90000);
 
-      const response = await fetch('https://wealthsimple-dashboard.onrender.com/api/v1/positions', {
+      const response = await fetch(POSITIONS_API_URL, {
         signal: controller.signal,
         headers: { 'Accept': 'application/json' },
       });
