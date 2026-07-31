@@ -90,8 +90,8 @@ export default function PositionsDashboard() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 90000);
 
-      //const response = await fetch('https://wealthsimple-dashboard.onrender.com/api/v1/positions', {
-      const response = await fetch('http://127.0.0.1:8000/api/v1/positions', {
+      const response = await fetch('https://wealthsimple-dashboard.onrender.com/api/v1/positions', {
+      //const response = await fetch('http://127.0.0.1:8000/api/v1/positions', {
         signal: controller.signal,
         headers: { Accept: 'application/json' },
       });
