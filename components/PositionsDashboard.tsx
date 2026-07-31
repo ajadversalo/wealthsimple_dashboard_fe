@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import MiniCashSecuredPutsScreener from './MiniCashSecuredPutsScreener';
 
 // --- TypeScript Interfaces ---
 export interface OptionLeg {
@@ -212,10 +213,10 @@ export default function PositionsDashboard() {
       <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-slate-800 pb-4 gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight">
-            Portfolio & Options Monitor
+            Options Dashboard
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            Account: <span className="text-slate-200 font-mono">{data.account_id}</span> | Updated:{' '}
+            Updated:{' '}
             {new Date(data.updated_at).toLocaleString()}
           </p>
         </div>
@@ -237,7 +238,7 @@ export default function PositionsDashboard() {
       </header>
 
       {/* Metric Cards Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-4">
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
           <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">
             Total
@@ -350,39 +351,7 @@ export default function PositionsDashboard() {
           </div>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-          <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">
-            Capital Deployed
-          </p>
-          <div className="mt-3 space-y-1">
-            <div className="flex items-baseline justify-between">
-              <span className="text-2xl font-bold text-indigo-400 font-mono">
-                $
-                {deployedUSD.toLocaleString('en-US', {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
-              </span>
-              <span className="text-xs text-slate-400 font-semibold font-mono">USD</span>
-            </div>
-            <div className="flex items-baseline justify-between pt-1 border-t border-slate-800/80">
-              <span className="text-sm font-semibold text-indigo-300/90 font-mono">
-                CA$
-                {deployedCAD.toLocaleString('en-US', {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
-              </span>
-              <span className="text-[10px] text-slate-500 font-mono">
-                CAD (
-                {netPortfolioUSD > 0
-                  ? ((deployedUSD / netPortfolioUSD) * 100).toFixed(1)
-                  : '0.0'}
-                %)
-              </span>
-            </div>
-          </div>
-        </div>
+        <MiniCashSecuredPutsScreener />
       </div>
 
       {/* Main Grid */}
