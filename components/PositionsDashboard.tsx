@@ -255,7 +255,7 @@ export default function PositionsDashboard() {
           <div className="mt-3 space-y-1">
             <div className="flex items-baseline justify-between">
               <span className="text-3xl font-bold text-emerald-400 font-mono">
-                CA$
+                $
                 {netPortfolioCAD.toLocaleString('en-US', {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
@@ -267,8 +267,8 @@ export default function PositionsDashboard() {
               <span className="text-sm font-semibold text-slate-300 font-mono">
                 $
                 {netPortfolioUSD.toLocaleString('en-US', {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
+                  minimumFractionDigits: 0,
+                  maximumFractionDigits: 0,
                 })}
               </span>
               <span className="text-[10px] text-slate-500 font-mono">USD</span>
@@ -283,7 +283,7 @@ export default function PositionsDashboard() {
           <div className="mt-3 space-y-1">
             <div className="flex items-baseline justify-between">
               <span className="text-3xl font-bold text-emerald-400 font-mono">
-                CA$
+                $
                 {wsNetCAD.toLocaleString('en-US', {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
