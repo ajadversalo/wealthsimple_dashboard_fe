@@ -247,7 +247,7 @@ export default function PositionsDashboard() {
       </header>
 
       {/* Metric Cards Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
           <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">
             Total
@@ -328,34 +328,6 @@ export default function PositionsDashboard() {
                 })}
               </span>
               <span className="text-[10px] text-slate-500 font-mono">USD</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-          <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">
-            Available Cash
-          </p>
-          <div className="mt-3 space-y-1">
-            <div className="flex items-baseline justify-between">
-              <span className="text-2xl font-bold text-emerald-200 font-mono">
-                $
-                {cashUSD.toLocaleString('en-US', {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
-              </span>
-              <span className="text-xs text-slate-400 font-semibold font-mono">USD</span>
-            </div>
-            <div className="flex items-baseline justify-between pt-1 border-t border-slate-800/80">
-              <span className="text-sm font-semibold text-emerald-200/90 font-mono">
-                CA$
-                {cashCAD.toLocaleString('en-US', {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
-              </span>
-              <span className="text-[10px] text-slate-500 font-mono">CAD</span>
             </div>
           </div>
         </div>
