@@ -7,11 +7,12 @@ import {
   AJ_TFSA_VALUE_CAD,
   CENTRA_NUMBER_OF_SHARES,
   CENTRA_SHARE_PRICE_CAD,
-  CHECKING_SAVINGS_VALUE_CAD,
+  CHECKING_VALUE_CAD,
   POSITIONS_API_URL,
   REAL_ESTATE_LIABILITY_CAD,
   REAL_ESTATE_MARKET_VALUE_CAD,
   RESP_VALUE_CAD,
+  SAVINGS_VALUE_CAD,
   SHEILA_RRSP_VALUE_CAD,
   SHEILA_TFSA_VALUE_CAD,
 } from '@/lib/constants';
@@ -102,8 +103,12 @@ export default function PortfolioSummary() {
     {
       href: '/checking-savings',
       name: 'Checking / Savings',
-      value: CHECKING_SAVINGS_VALUE_CAD,
+      value: CHECKING_VALUE_CAD + SAVINGS_VALUE_CAD,
       live: false,
+      breakdown: [
+        { name: 'Checking', value: CHECKING_VALUE_CAD },
+        { name: 'Savings', value: SAVINGS_VALUE_CAD },
+      ],
     },
     {
       href: '/real-estate',
@@ -127,6 +132,13 @@ export default function PortfolioSummary() {
     },
   ];
   const total = accounts.reduce((sum, account) => sum + account.value, 0);
+  const liquidAssets =
+    liveValues.options +
+    liveValues.crypto +
+    AJ_TFSA_VALUE_CAD +
+    SHEILA_TFSA_VALUE_CAD +
+    CHECKING_VALUE_CAD +
+    SAVINGS_VALUE_CAD;
 
   return (
     <section aria-labelledby="portfolio-heading">
@@ -134,14 +146,28 @@ export default function PortfolioSummary() {
         Portfolio values
       </h2>
 
-      <div className="mb-6 rounded-2xl border border-emerald-900/70 bg-gradient-to-br from-slate-900 to-emerald-950/40 p-7 sm:p-9">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-400">
-          Total portfolio
-        </p>
-        <p className="mt-3 font-mono text-4xl font-bold tracking-tight text-white sm:text-5xl">
-          {loading ? 'Loading…' : formatCad(total)}
-        </p>
-        <p className="mt-3 text-sm text-slate-400">Combined value across all accounts in CAD</p>
+      <div className="mb-6 grid gap-8 rounded-2xl border border-emerald-900/70 bg-gradient-to-br from-slate-900 to-emerald-950/40 p-7 sm:grid-cols-2 sm:p-9">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-400">
+            Total portfolio
+          </p>
+          <p className="mt-3 font-mono text-4xl font-bold tracking-tight text-white sm:text-5xl">
+            {loading ? 'Loading…' : formatCad(total)}
+          </p>
+          <p className="mt-3 text-sm text-slate-400">Combined value across all accounts in CAD</p>
+        </div>
+
+        <div className="border-t border-slate-700/70 pt-8 sm:border-l sm:border-t-0 sm:pl-8 sm:pt-0">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-400">
+            Liquid assets
+          </p>
+          <p className="mt-3 font-mono text-4xl font-bold tracking-tight text-white sm:text-5xl">
+            {loading ? 'Loading…' : formatCad(liquidAssets)}
+          </p>
+          <p className="mt-3 text-sm text-slate-400">
+            TFSA + Options + Checking / Savings + Crypto
+          </p>
+        </div>
       </div>
 
       {error && (
