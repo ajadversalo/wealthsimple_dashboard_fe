@@ -2,74 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { signOut } from 'next-auth/react';
+import type { Position, PositionsPayload } from '@/features/positions/positions.types';
 import MiniCashSecuredPutsScreener from './MiniCashSecuredPutsScreener';
-
-// --- TypeScript Interfaces ---
-export interface OptionLeg {
-  contract_symbol: string;
-  option_type: 'PUT' | 'CALL';
-  strike_price: number;
-  expiration_date: string;
-  quantity: number;
-  avg_price: number;
-  moneyness: string;
-}
-
-export interface Underlying {
-  shares: number;
-  avg_purchase_price: number;
-}
-
-export interface CurrencyValue {
-  usd: number;
-  cad: number;
-}
-
-export type BrokerTotals = Record<string, BrokerSummary>;
-
-export interface BrokerSummary {
-  broker: string;
-  net_value: CurrencyValue;
-  option_liabilities: CurrencyValue;
-  remaining_capital: CurrencyValue;
-  deployed_capital: CurrencyValue;
-  total_capital: CurrencyValue;
-}
-
-export interface Position {
-  symbol: string;
-  broker: string;
-  asset_class: string;
-  strategy: 'CASH_SECURED_PUT' | 'COVERED_CALL' | 'LONG_EQUITY' | string;
-  industry: string;
-  current_price: number;
-  portfolio_pct: number;
-  underlying: Underlying | null;
-  option_leg: OptionLeg | null;
-}
-
-export interface Sector {
-  industry: string;
-  capital_committed: number;
-  portfolio_pct: number;
-  tickers: string[];
-}
-
-export interface CurrencyPair {
-  usd: number;
-  cad: number;
-}
-
-export interface PositionsPayload {
-  account_id: string;
-  updated_at: string;
-  fx_rate_usd_cad: number;
-  total_capital: CurrencyPair;
-  remaining_capital: CurrencyPair;
-  positions: Position[];
-  sectors: Sector[];
-  broker_totals: BrokerTotals;
-}
 
 const SECTOR_COLORS = [
   '#06b6d4', // Cyan (Healthcare)

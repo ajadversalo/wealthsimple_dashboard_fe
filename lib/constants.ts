@@ -11,5 +11,8 @@ export const REAL_ESTATE_LIABILITY_CAD = 323203;
 export const CENTRA_NUMBER_OF_SHARES = 2000;
 export const CENTRA_SHARE_PRICE_CAD = 11;
 
+// Indicative CAD/PHP reference rate. Replace with a live FX source when one is connected.
+export const CAD_TO_PHP_RATE = 43.6236;
+
 export const POSITIONS_API_URL =
   'https://wealthsimple-dashboard.onrender.com/api/v1/positions';
