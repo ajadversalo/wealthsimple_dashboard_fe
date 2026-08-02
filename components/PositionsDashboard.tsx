@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { signOut } from 'next-auth/react';
 import type { Position, PositionsPayload } from '@/features/positions/positions.types';
 import MiniCashSecuredPutsScreener from './MiniCashSecuredPutsScreener';
@@ -14,25 +14,41 @@ const SECTOR_COLORS = [
   '#ec4899', // Pink
 ];
 
+const POSITIONS_CACHE_KEY = 'wealth-dashboard:positions';
+const REFRESH_INTERVAL_MS = 60 * 60 * 1000;
+
+const isPositionsPayload = (value: unknown): value is PositionsPayload => {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Partial<PositionsPayload>;
+  return (
+    typeof candidate.updated_at === 'string' &&
+    typeof candidate.fx_rate_usd_cad === 'number' &&
+    Array.isArray(candidate.positions) &&
+    Array.isArray(candidate.sectors) &&
+    Boolean(candidate.broker_totals)
+  );
+};
+
 export default function PositionsDashboard() {
   const [data, setData] = useState<PositionsPayload | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchPositions = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 90000);
+  const fetchPositions = useCallback(async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+      setError(null);
+    }
 
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 90000);
+
+    try {
       const response = await fetch('https://wealthsimple-dashboard.onrender.com/api/v1/positions', {
       //const response = await fetch('http://127.0.0.1:8000/api/v1/positions', {
         signal: controller.signal,
         headers: { Accept: 'application/json' },
       });
-
-      clearTimeout(timeoutId);
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -40,18 +56,39 @@ export default function PositionsDashboard() {
 
       const result: PositionsPayload = await response.json();
       setData(result);
+      localStorage.setItem(POSITIONS_CACHE_KEY, JSON.stringify(result));
+      setError(null);
     } catch (err: any) {
-      setError(err.message || 'Failed to connect to endpoint');
+      if (!silent) setError(err.message || 'Failed to connect to endpoint');
     } finally {
-      setLoading(false);
+      window.clearTimeout(timeoutId);
+      if (!silent) setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchPositions();
-    const interval = setInterval(fetchPositions, 60 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
+    let hasCachedData = false;
+
+    try {
+      const cached = localStorage.getItem(POSITIONS_CACHE_KEY);
+      if (cached) {
+        const parsed: unknown = JSON.parse(cached);
+        if (isPositionsPayload(parsed)) {
+          setData(parsed);
+          setLoading(false);
+          hasCachedData = true;
+        }
+      }
+    } catch {
+      localStorage.removeItem(POSITIONS_CACHE_KEY);
+    }
+
+    void fetchPositions(hasCachedData);
+    const interval = window.setInterval(() => {
+      void fetchPositions(true);
+    }, REFRESH_INTERVAL_MS);
+    return () => window.clearInterval(interval);
+  }, [fetchPositions]);
 
   if (loading && !data) {
     return (
@@ -70,7 +107,7 @@ export default function PositionsDashboard() {
           <h2 className="text-xl font-bold text-red-400 mb-2">Connection Error</h2>
           <p className="text-slate-300 text-sm mb-4">{error}</p>
           <button
-            onClick={fetchPositions}
+            onClick={() => void fetchPositions()}
             className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-medium rounded transition-colors"
           >
             Retry Connection
@@ -164,7 +201,7 @@ export default function PositionsDashboard() {
           </div>
 
           <button
-            onClick={fetchPositions}
+            onClick={() => void fetchPositions()}
             disabled={loading}
             className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-md transition-colors disabled:opacity-50"
           >
