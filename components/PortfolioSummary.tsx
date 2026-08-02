@@ -65,14 +65,40 @@ const ALLOCATION_COLORS = [
   '#a3e635',
 ];
 
+const PORTFOLIO_CACHE_KEY = 'wealth-dashboard:portfolio-summary';
+const REFRESH_INTERVAL_MS = 60 * 60 * 1000;
+
+interface LiveValues {
+  options: number;
+  crypto: number;
+  usdCadRate: number;
+}
+
+const isLiveValues = (value: unknown): value is LiveValues => {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Partial<LiveValues>;
+  return (
+    typeof candidate.options === 'number' &&
+    typeof candidate.crypto === 'number' &&
+    typeof candidate.usdCadRate === 'number' &&
+    candidate.usdCadRate > 0
+  );
+};
+
 export default function PortfolioSummary() {
-  const [liveValues, setLiveValues] = useState({ options: 0, crypto: 0, usdCadRate: 0 });
+  const [liveValues, setLiveValues] = useState<LiveValues>({
+    options: 0,
+    crypto: 0,
+    usdCadRate: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchValues = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const fetchValues = useCallback(async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+      setError(null);
+    }
 
     try {
       const response = await fetch(POSITIONS_API_URL, {
@@ -84,20 +110,48 @@ export default function PortfolioSummary() {
       }
 
       const data: PositionsSummaryPayload = await response.json();
-      setLiveValues({
+      const nextValues: LiveValues = {
         options: data.broker_totals.WEALTHSIMPLE?.net_value.cad ?? 0,
         crypto: data.broker_totals.KRAKEN?.net_value.cad ?? 0,
         usdCadRate: data.fx_rate_usd_cad,
-      });
+      };
+      setLiveValues(nextValues);
+      localStorage.setItem(PORTFOLIO_CACHE_KEY, JSON.stringify(nextValues));
+      setError(null);
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Unable to load portfolio values');
+      if (!silent) {
+        setError(
+          requestError instanceof Error ? requestError.message : 'Unable to load portfolio values'
+        );
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    void fetchValues();
+    let hasCachedValues = false;
+
+    try {
+      const cached = localStorage.getItem(PORTFOLIO_CACHE_KEY);
+      if (cached) {
+        const parsed: unknown = JSON.parse(cached);
+        if (isLiveValues(parsed)) {
+          setLiveValues(parsed);
+          setLoading(false);
+          hasCachedValues = true;
+        }
+      }
+    } catch {
+      localStorage.removeItem(PORTFOLIO_CACHE_KEY);
+    }
+
+    void fetchValues(hasCachedValues);
+    const refreshInterval = window.setInterval(() => {
+      void fetchValues(true);
+    }, REFRESH_INTERVAL_MS);
+
+    return () => window.clearInterval(refreshInterval);
   }, [fetchValues]);
 
   const accounts: Array<{
