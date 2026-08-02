@@ -3,13 +3,17 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  CENTRA_VALUE_CAD,
+  AJ_RRSP_VALUE_CAD,
+  AJ_TFSA_VALUE_CAD,
+  CENTRA_NUMBER_OF_SHARES,
+  CENTRA_SHARE_PRICE_CAD,
   CHECKING_SAVINGS_VALUE_CAD,
   POSITIONS_API_URL,
-  REAL_ESTATE_VALUE_CAD,
+  REAL_ESTATE_LIABILITY_CAD,
+  REAL_ESTATE_MARKET_VALUE_CAD,
   RESP_VALUE_CAD,
-  RRSP_VALUE_CAD,
-  TFSA_VALUE_CAD,
+  SHEILA_RRSP_VALUE_CAD,
+  SHEILA_TFSA_VALUE_CAD,
 } from '@/lib/constants';
 
 interface PositionsSummaryPayload {
@@ -65,11 +69,35 @@ export default function PortfolioSummary() {
     void fetchValues();
   }, [fetchValues]);
 
-  const accounts = [
+  const accounts: Array<{
+    href: string;
+    name: string;
+    value: number;
+    live: boolean;
+    breakdown?: Array<{ name: string; value: number }>;
+  }> = [
     { href: '/options', name: 'Options', value: liveValues.options, live: true },
     { href: '/crypto', name: 'Crypto', value: liveValues.crypto, live: true },
-    { href: '/tfsa', name: 'TFSA', value: TFSA_VALUE_CAD, live: false },
-    { href: '/rrsp', name: 'RRSP', value: RRSP_VALUE_CAD, live: false },
+    {
+      href: '/tfsa',
+      name: 'TFSA',
+      value: AJ_TFSA_VALUE_CAD + SHEILA_TFSA_VALUE_CAD,
+      live: false,
+      breakdown: [
+        { name: 'AJ', value: AJ_TFSA_VALUE_CAD },
+        { name: 'Sheila', value: SHEILA_TFSA_VALUE_CAD },
+      ],
+    },
+    {
+      href: '/rrsp',
+      name: 'RRSP',
+      value: AJ_RRSP_VALUE_CAD + SHEILA_RRSP_VALUE_CAD,
+      live: false,
+      breakdown: [
+        { name: 'AJ', value: AJ_RRSP_VALUE_CAD },
+        { name: 'Sheila', value: SHEILA_RRSP_VALUE_CAD },
+      ],
+    },
     { href: '/resp', name: 'RESP', value: RESP_VALUE_CAD, live: false },
     {
       href: '/checking-savings',
@@ -80,10 +108,23 @@ export default function PortfolioSummary() {
     {
       href: '/real-estate',
       name: 'Real Estate',
-      value: REAL_ESTATE_VALUE_CAD,
+      value: REAL_ESTATE_MARKET_VALUE_CAD - REAL_ESTATE_LIABILITY_CAD,
       live: false,
+      breakdown: [
+        { name: 'Market value', value: REAL_ESTATE_MARKET_VALUE_CAD },
+        { name: 'Liability', value: -REAL_ESTATE_LIABILITY_CAD },
+      ],
     },
-    { href: '/centra', name: 'Centra', value: CENTRA_VALUE_CAD, live: false },
+    {
+      href: '/centra',
+      name: 'Centra',
+      value: CENTRA_NUMBER_OF_SHARES * CENTRA_SHARE_PRICE_CAD,
+      live: false,
+      breakdown: [
+        { name: 'Shares', value: CENTRA_NUMBER_OF_SHARES },
+        { name: 'Share price', value: CENTRA_SHARE_PRICE_CAD },
+      ],
+    },
   ];
   const total = accounts.reduce((sum, account) => sum + account.value, 0);
 
@@ -128,6 +169,20 @@ export default function PortfolioSummary() {
             <p className="mt-5 font-mono text-2xl font-bold text-white">
               {loading && account.live ? 'Loading…' : formatCad(account.value)}
             </p>
+            {account.breakdown && (
+              <dl className="mt-4 space-y-2 border-t border-slate-800 pt-3 text-xs">
+                {account.breakdown.map((item) => (
+                  <div key={item.name} className="flex items-center justify-between gap-3">
+                    <dt className="text-slate-500">{item.name}</dt>
+                    <dd className="font-mono font-semibold text-slate-300">
+                      {account.href === '/centra' && item.name === 'Shares'
+                        ? item.value.toLocaleString('en-CA')
+                        : formatCad(item.value)}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            )}
             <p className="mt-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
               {account.live ? 'Live value' : 'Temporary value'}
             </p>
